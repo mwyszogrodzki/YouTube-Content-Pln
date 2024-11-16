@@ -6,6 +6,32 @@ from io import BytesIO
 from dotenv import load_dotenv
 import os
 
+def get_api_config():
+    """Get API configuration with detailed error checking"""
+    load_dotenv()
+    
+    api_key = os.getenv('RAPIDAPI_KEY')
+    api_host = os.getenv('YT_RAPIDAPI_HOST')
+    
+    config_status = {
+        'is_valid': True,
+        'errors': []
+    }
+    
+    if not api_key:
+        config_status['is_valid'] = False
+        config_status['errors'].append("RAPIDAPI_KEY not found in environment variables")
+    
+    if not api_host:
+        config_status['is_valid'] = False
+        config_status['errors'].append("YT_RAPIDAPI_HOST not found in environment variables")
+    
+    return {
+        'key': api_key,
+        'host': api_host,
+        'status': config_status
+    }
+
 def search_youtube(query, country_code="US", language="en"):
     url = "https://yt-api.p.rapidapi.com/search"
     
@@ -15,21 +41,32 @@ def search_youtube(query, country_code="US", language="en"):
         "lang": language
     }
     
-    load_dotenv()  # Load environment variables from .env file
+    # Get API configuration with validation
+    api_config = get_api_config()
+    
+    # Debug information
+    st.write("Debug Info:")
+    st.write("API Configuration Status:", api_config['status'])
+    
+    if not api_config['status']['is_valid']:
+        for error in api_config['status']['errors']:
+            st.error(f"Configuration Error: {error}")
+        return None
+    
     headers = {
-        "x-rapidapi-key": os.getenv('RAPIDAPI_KEY'),
-        "x-rapidapi-host": os.getenv('YT_RAPIDAPI_HOST')
+        "x-rapidapi-key": api_config['key'],
+        "x-rapidapi-host": api_config['host']
     }
     
     try:
-        # Debug information
-        st.write("Debug Info:")
-        st.write(f"API Host: {os.getenv('YT_RAPIDAPI_HOST')}")
+        # Show request details
+        st.write("Request Details:")
+        st.write(f"API Host: {api_config['host']}")
         st.write(f"Query Parameters: {querystring}")
         
         response = requests.get(url, headers=headers, params=querystring)
         
-        # Show response status and headers
+        # Show response details
         st.write(f"Response Status Code: {response.status_code}")
         st.write("Response Headers:", response.headers)
         
