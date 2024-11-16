@@ -18,14 +18,45 @@ def search_youtube(query, country_code="US", language="en"):
     load_dotenv()  # Load environment variables from .env file
     headers = {
         "x-rapidapi-key": os.getenv('RAPIDAPI_KEY'),
-        "x-rapidapi-host": os.getenv('YT_RAPIDAPI_HOST')  # Note: different host than downloader
+        "x-rapidapi-host": os.getenv('YT_RAPIDAPI_HOST')
     }
     
-    response = requests.get(url, headers=headers, params=querystring)
-    return response.json()
+    try:
+        # Debug information
+        st.write("Debug Info:")
+        st.write(f"API Host: {os.getenv('YT_RAPIDAPI_HOST')}")
+        st.write(f"Query Parameters: {querystring}")
+        
+        response = requests.get(url, headers=headers, params=querystring)
+        
+        # Show response status and headers
+        st.write(f"Response Status Code: {response.status_code}")
+        st.write("Response Headers:", response.headers)
+        
+        # Show raw response for debugging
+        st.write("Raw Response:", response.text[:500] + "..." if len(response.text) > 500 else response.text)
+        
+        if response.status_code != 200:
+            st.error(f"API Error: Status Code {response.status_code}")
+            return None
+            
+        return response.json()
+        
+    except requests.exceptions.RequestException as e:
+        st.error(f"Request Error: {str(e)}")
+        return None
+    except json.JSONDecodeError as e:
+        st.error(f"JSON Decode Error: {str(e)}")
+        return None
+    except Exception as e:
+        st.error(f"Unexpected Error: {str(e)}")
+        return None
 
 def main():
     st.title("YouTube Search App")
+    
+    # Debug mode toggle
+    debug_mode = st.sidebar.checkbox("Debug Mode", value=False)
     
     # Search inputs
     col1, col2, col3 = st.columns(3)
@@ -48,7 +79,9 @@ def main():
             with st.spinner("Searching..."):
                 results = search_youtube(query, country, language)
                 
-                if "data" in results:
+                if results and "data" in results:
+                    st.success(f"Found {len(results['data'])} results")
+                    
                     for item in results["data"]:
                         if item["type"] == "video":
                             # Create columns for layout
@@ -62,8 +95,11 @@ def main():
                                         response = requests.get(thumbnail_url)
                                         img = Image.open(BytesIO(response.content))
                                         st.image(img, width=160)
-                                    except:
-                                        st.write("Thumbnail not available")
+                                    except Exception as e:
+                                        if debug_mode:
+                                            st.error(f"Thumbnail error: {str(e)}")
+                                        else:
+                                            st.write("Thumbnail not available")
                             
                             # Display video information
                             with col2:
@@ -75,8 +111,13 @@ def main():
                                     st.write(f"Description: {item['description'][:200]}...")
                             
                             st.divider()
+                            
+                            if debug_mode:
+                                st.write("Raw item data:", item)
                 else:
                     st.error("No results found")
+                    if debug_mode:
+                        st.write("Raw results:", results)
         else:
             st.warning("Please enter a search query")
 

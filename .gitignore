@@ -17,4 +17,7 @@ ENV/
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Secrets
+.streamlit/secrets.toml
