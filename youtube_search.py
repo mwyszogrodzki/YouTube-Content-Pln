@@ -3,6 +3,8 @@ import requests
 import json
 from PIL import Image
 from io import BytesIO
+from dotenv import load_dotenv
+import os
 
 def search_youtube(query, country_code="US", language="en"):
     url = "https://yt-api.p.rapidapi.com/search"
@@ -13,9 +15,10 @@ def search_youtube(query, country_code="US", language="en"):
         "lang": language
     }
     
+    load_dotenv()  # Load environment variables from .env file
     headers = {
-        "x-rapidapi-key": "8045e3125cmsh2a1994c6d67e2cap18598bjsnbf7aafc18393",
-        "x-rapidapi-host": "yt-api.p.rapidapi.com"
+        "x-rapidapi-key": os.getenv('RAPIDAPI_KEY'),
+        "x-rapidapi-host": os.getenv('YT_RAPIDAPI_HOST')  # Note: different host than downloader
     }
     
     response = requests.get(url, headers=headers, params=querystring)

@@ -11,6 +11,7 @@ import os
 import subprocess
 from groq import Groq
 from tkinter import filedialog
+from dotenv import load_dotenv
 
 class YouTubeDownloader:
     def __init__(self, root):
@@ -80,9 +81,10 @@ class YouTubeDownloader:
 
     def check_conversion_status(self, video_id):
         """Check conversion status from API"""
+        load_dotenv()  # Load environment variables from .env file
         headers = {
-            'x-rapidapi-key': "8045e3125cmsh2a1994c6d67e2cap18598bjsnbf7aafc18393",
-            'x-rapidapi-host': "youtube-mp36.p.rapidapi.com"
+            'x-rapidapi-key': os.getenv('RAPIDAPI_KEY'),
+            'x-rapidapi-host': os.getenv('RAPIDAPI_HOST')
         }
         
         while self.is_loading:
@@ -127,7 +129,7 @@ class YouTubeDownloader:
             
             # Transcribe using Groq
             client = Groq(
-                api_key="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"
+                api_key=os.getenv('GROQ_API_KEY')
             )
             
             with open(ogg_path, "rb") as file:
