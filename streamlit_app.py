@@ -11,8 +11,6 @@ def check_password():
     
     # Load credentials from environment variables if not in streamlit cloud
     load_dotenv()
-    ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
-    ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'mujhi9-kikwid-Qodfeq')
     
     def password_entered():
         """Checks whether a password entered by the user is correct."""
@@ -22,8 +20,12 @@ def check_password():
             password = st.secrets.credentials.password
         except:
             # Fall back to environment variables
-            username = ADMIN_USERNAME
-            password = ADMIN_PASSWORD
+            username = os.getenv('ADMIN_USERNAME')
+            password = os.getenv('ADMIN_PASSWORD')
+            
+            if not username or not password:
+                st.error("Authentication credentials not properly configured")
+                return
             
         if hmac.compare_digest(st.session_state["username"], username):
             if hmac.compare_digest(st.session_state["password"], password):
