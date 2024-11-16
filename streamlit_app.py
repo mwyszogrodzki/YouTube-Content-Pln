@@ -3,17 +3,33 @@ from youtube_search import main as search_main
 from youtube_downloader import main as downloader_main
 import hmac
 import time
+import os
+from dotenv import load_dotenv
 
 def check_password():
     """Returns `True` if the user had the correct password."""
-
+    
+    # Load credentials from environment variables if not in streamlit cloud
+    load_dotenv()
+    ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+    ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'mujhi9-kikwid-Qodfeq')
+    
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        if hmac.compare_digest(st.session_state["username"], st.secrets.credentials.username):
-            if hmac.compare_digest(st.session_state["password"], st.secrets.credentials.password):
+        try:
+            # Try to get credentials from Streamlit secrets first
+            username = st.secrets.credentials.username
+            password = st.secrets.credentials.password
+        except:
+            # Fall back to environment variables
+            username = ADMIN_USERNAME
+            password = ADMIN_PASSWORD
+            
+        if hmac.compare_digest(st.session_state["username"], username):
+            if hmac.compare_digest(st.session_state["password"], password):
                 st.session_state["password_correct"] = True
-                del st.session_state["password"]  # Don't store the password.
-                del st.session_state["username"]  # Don't store the username.
+                del st.session_state["password"]
+                del st.session_state["username"]
             else:
                 st.session_state["password_correct"] = False
         else:
