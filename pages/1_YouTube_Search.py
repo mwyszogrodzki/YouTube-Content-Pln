@@ -1,4 +1,3 @@
-# Copy all imports and functions from youtube_search.py
 import streamlit as st
 import requests
 import json
@@ -11,11 +10,6 @@ def get_api_config():
     """Get API configuration with detailed error checking"""
     load_dotenv()  # Load environment variables as fallback
     
-    config_status = {
-        'is_valid': True,
-        'errors': []
-    }
-    
     # Try to get API keys from Streamlit secrets first, then fall back to env vars
     try:
         api_key = st.secrets.api_credentials.rapidapi_key
@@ -24,18 +18,13 @@ def get_api_config():
         api_key = os.getenv('RAPIDAPI_KEY')
         api_host = os.getenv('YT_RAPIDAPI_HOST')
     
-    if not api_key:
-        config_status['is_valid'] = False
-        config_status['errors'].append("RapidAPI key not found in secrets or environment variables")
-    
-    if not api_host:
-        config_status['is_valid'] = False
-        config_status['errors'].append("RapidAPI host not found in secrets or environment variables")
-    
+    if not api_key or not api_host:
+        st.error("API configuration error. Please check your credentials.")
+        return None
+        
     return {
         'key': api_key,
-        'host': api_host,
-        'status': config_status
+        'host': api_host
     }
 
 def search_youtube(query, country_code="US", language="en"):
@@ -47,16 +36,9 @@ def search_youtube(query, country_code="US", language="en"):
         "lang": language
     }
     
-    # Get API configuration with validation
+    # Get API configuration
     api_config = get_api_config()
-    
-    # Debug information
-    st.write("Debug Info:")
-    st.write("API Configuration Status:", api_config['status'])
-    
-    if not api_config['status']['is_valid']:
-        for error in api_config['status']['errors']:
-            st.error(f"Configuration Error: {error}")
+    if not api_config:
         return None
     
     headers = {
@@ -65,34 +47,17 @@ def search_youtube(query, country_code="US", language="en"):
     }
     
     try:
-        # Show request details
-        st.write("Request Details:")
-        st.write(f"API Host: {api_config['host']}")
-        st.write(f"Query Parameters: {querystring}")
-        
-        response = requests.get(url, headers=headers, params=querystring)
-        
-        # Show response details
-        st.write(f"Response Status Code: {response.status_code}")
-        st.write("Response Headers:", response.headers)
-        
-        # Show raw response for debugging
-        st.write("Raw Response:", response.text[:500] + "..." if len(response.text) > 500 else response.text)
-        
-        if response.status_code != 200:
-            st.error(f"API Error: Status Code {response.status_code}")
-            return None
+        with st.spinner('Searching...'):
+            response = requests.get(url, headers=headers, params=querystring)
             
-        return response.json()
-        
-    except requests.exceptions.RequestException as e:
-        st.error(f"Request Error: {str(e)}")
-        return None
-    except json.JSONDecodeError as e:
-        st.error(f"JSON Decode Error: {str(e)}")
-        return None
+            if response.status_code != 200:
+                st.error("Failed to fetch search results")
+                return None
+                
+            return response.json()
+            
     except Exception as e:
-        st.error(f"Unexpected Error: {str(e)}")
+        st.error("Error occurred while searching")
         return None
 
 def check_auth():
@@ -121,9 +86,6 @@ def main():
         st.session_state.last_country = "US"
     if 'last_language' not in st.session_state:
         st.session_state.last_language = "en"
-    
-    # Debug mode toggle
-    debug_mode = st.sidebar.checkbox("Debug Mode", value=False)
     
     # Show selected videos count and list in sidebar
     st.sidebar.write(f"Selected Videos: {len(st.session_state.selected_videos)}")
@@ -165,11 +127,10 @@ def main():
         if query and (query != st.session_state.last_query or 
                      country != st.session_state.last_country or 
                      language != st.session_state.last_language):
-            with st.spinner("Searching..."):
-                st.session_state.search_results = search_youtube(query, country, language)
-                st.session_state.last_query = query
-                st.session_state.last_country = country
-                st.session_state.last_language = language
+            st.session_state.search_results = search_youtube(query, country, language)
+            st.session_state.last_query = query
+            st.session_state.last_country = country
+            st.session_state.last_language = language
         
         results = st.session_state.search_results
         if results and "data" in results:
@@ -188,11 +149,8 @@ def main():
                                 response = requests.get(thumbnail_url)
                                 img = Image.open(BytesIO(response.content))
                                 st.image(img, width=160)
-                            except Exception as e:
-                                if debug_mode:
-                                    st.error(f"Thumbnail error: {str(e)}")
-                                else:
-                                    st.write("Thumbnail not available")
+                            except:
+                                st.write("Thumbnail not available")
                     
                     # Display video information
                     with col2:
@@ -217,14 +175,9 @@ def main():
                             st.rerun()
                     
                     st.divider()
-                    
-                    if debug_mode:
-                        st.write("Raw item data:", item)
         else:
             if query:
                 st.error("No results found")
-                if debug_mode:
-                    st.write("Raw results:", results)
     else:
         st.warning("Please enter a search query")
 

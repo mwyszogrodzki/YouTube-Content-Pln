@@ -247,6 +247,7 @@ class YouTubeDownloader:
             
             with st.spinner('Generating knowledge base... This might take a while.'):
                 try:
+                    self.update_status("Making API request...")
                     response = requests.post(
                         self.kb_api_endpoint,
                         headers=headers,
@@ -257,26 +258,29 @@ class YouTubeDownloader:
                     self.update_status(f"Response status code: {response.status_code}")
                     self.update_status(f"Response headers: {dict(response.headers)}")
                     
-                    try:
-                        response_text = response.text
-                        self.update_status(f"Raw response: {response_text[:500]}...")
-                    except:
-                        self.update_status("Could not read response text", is_error=True)
+                    # Log the complete response for debugging
+                    self.update_status("Complete Response:")
+                    self.update_status(response.text)
                     
-                    if response.status_code == 200:
-                        try:
-                            result = response.json()
+                    # Try to parse response as JSON even if status code is not 200
+                    try:
+                        result = response.json() if response.text else None
+                        self.update_status("Parsed response:")
+                        self.update_status(str(result))
+                        
+                        # Check if response contains expected data structure
+                        if isinstance(result, (list, dict)):
                             self.update_status("Knowledge base generated successfully!")
                             st.session_state['knowledge_base'] = result
                             return result
-                        except json.JSONDecodeError as e:
-                            self.update_status(f"Failed to parse JSON response: {str(e)}", is_error=True)
+                        else:
+                            self.update_status(f"Unexpected response format: {type(result)}", is_error=True)
                             return None
-                    else:
-                        self.update_status(
-                            f"Error {response.status_code} from API: {response.text}",
-                            is_error=True
-                        )
+                            
+                    except json.JSONDecodeError as e:
+                        self.update_status(f"Failed to parse JSON response: {str(e)}", is_error=True)
+                        self.update_status("Raw response received:")
+                        self.update_status(response.text)
                         return None
                         
                 except requests.exceptions.Timeout:
@@ -284,12 +288,13 @@ class YouTubeDownloader:
                     return None
                 except requests.exceptions.RequestException as e:
                     self.update_status(f"Request failed: {str(e)}", is_error=True)
+                    self.update_status(f"Request Exception Details: {repr(e)}")
                     return None
                     
         except Exception as e:
             self.update_status(f"Knowledge base generation error: {str(e)}", is_error=True)
             import traceback
-            self.update_status(f"Traceback: {traceback.format_exc()}", is_error=True)
+            self.update_status(f"Full traceback:\n{traceback.format_exc()}", is_error=True)
             return None
 
 def check_auth():
@@ -406,11 +411,9 @@ def main():
             with st.spinner('Generating knowledge base...'):
                 progress_bar = st.progress(0)
                 
-                # Update progress bar
                 progress_bar.progress(25)
                 st.write("Preparing data...")
                 
-                # Generate knowledge base using stored transcription
                 progress_bar.progress(50)
                 st.write("Sending data to API...")
                 
@@ -420,13 +423,14 @@ def main():
                     combined_transcription=st.session_state.combined_transcription
                 )
                 
-                if result:
+                if result is not None:  # Changed from if result:
                     progress_bar.progress(100)
                     st.success("Knowledge base generated successfully!")
+                    st.write("API Response:")
                     st.json(result)
                 else:
                     progress_bar.progress(0)
-                    st.error("Failed to generate knowledge base")
+                    st.error("Failed to generate knowledge base. Check the status messages above for details.")
         
         # Clear selected videos and transcription after processing
         if 'selected_videos' in st.session_state:
