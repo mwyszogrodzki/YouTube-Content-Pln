@@ -1,6 +1,4 @@
 import streamlit as st
-from youtube_search import main as search_main
-from youtube_downloader import main as downloader_main
 import hmac
 import time
 import os
@@ -72,14 +70,7 @@ def main():
     st.title("YouTube Tools 🎥")
     st.markdown("---")
 
-    # Create tabs for different functionalities
-    tab1, tab2 = st.tabs(["YouTube Search", "YouTube Downloader"])
-
-    with tab1:
-        search_main()
-
-    with tab2:
-        downloader_main()
+    st.write("Welcome to YouTube Tools! Please select a tool from the sidebar.")
 
     # Add footer
     st.markdown("---")
