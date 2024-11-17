@@ -81,9 +81,31 @@ class YouTubeDownloader:
         self.update_status("Conversion timed out - video might be too long or unavailable", is_error=True)
         return None
 
+    def check_ffmpeg(self):
+        """Check if FFmpeg is installed and accessible"""
+        try:
+            subprocess.run(['ffmpeg', '-version'], capture_output=True)
+            return True
+        except FileNotFoundError:
+            self.update_status("""
+            FFmpeg is not installed or not found in PATH. 
+            
+            To install FFmpeg:
+            - On Ubuntu/Debian: sudo apt-get install ffmpeg
+            - On macOS: brew install ffmpeg
+            - On Windows: Download from https://www.ffmpeg.org/download.html
+            
+            After installing, please restart the application.
+            """, is_error=True)
+            return False
+
     def download_and_process_file(self, url):
         """Download MP3 and process it"""
         try:
+            # Check FFmpeg first
+            if not self.check_ffmpeg():
+                return None
+
             # Download the MP3 file
             self.update_status("Downloading MP3 file...")
             response = requests.get(url)
@@ -96,15 +118,25 @@ class YouTubeDownloader:
             # Convert to OGG
             self.update_status("Converting audio format...")
             try:
+                # Add full path for ffmpeg in Streamlit Cloud
+                ffmpeg_cmd = 'ffmpeg'
+                if os.path.exists('/usr/bin/ffmpeg'):
+                    ffmpeg_cmd = '/usr/bin/ffmpeg'
+                elif os.path.exists('/usr/local/bin/ffmpeg'):
+                    ffmpeg_cmd = '/usr/local/bin/ffmpeg'
+                
                 subprocess.run([
-                    'ffmpeg', '-i', mp3_path,
+                    ffmpeg_cmd, '-i', mp3_path,
                     '-vn', '-map_metadata', '-1',
                     '-ac', '1', '-c:a', 'libopus',
                     '-b:a', '12k', '-application', 'voip',
                     ogg_path
-                ], check=True)
+                ], check=True, capture_output=True)
             except subprocess.CalledProcessError as e:
-                self.update_status(f"FFmpeg conversion error: {str(e)}", is_error=True)
+                self.update_status(f"FFmpeg conversion error: {e.stderr.decode()}", is_error=True)
+                return None
+            except Exception as e:
+                self.update_status(f"FFmpeg error: {str(e)}", is_error=True)
                 return None
             
             # Transcribe using Groq
