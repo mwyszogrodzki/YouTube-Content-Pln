@@ -95,7 +95,19 @@ def search_youtube(query, country_code="US", language="en"):
         st.error(f"Unexpected Error: {str(e)}")
         return None
 
+def check_auth():
+    """Check if user is authenticated"""
+    if "password_correct" not in st.session_state:
+        st.error("Please log in first")
+        st.stop()
+    if not st.session_state["password_correct"]:
+        st.error("Please log in first")
+        st.stop()
+
 def main():
+    # Check authentication first
+    check_auth()
+    
     st.title("YouTube Search App")
     
     # Create/access session state for selected videos and search results

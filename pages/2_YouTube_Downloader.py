@@ -266,7 +266,19 @@ class YouTubeDownloader:
             self.update_status(f"Traceback: {traceback.format_exc()}", is_error=True)
             return None
 
+def check_auth():
+    """Check if user is authenticated"""
+    if "password_correct" not in st.session_state:
+        st.error("Please log in first")
+        st.stop()
+    if not st.session_state["password_correct"]:
+        st.error("Please log in first")
+        st.stop()
+
 def main():
+    # Check authentication first
+    check_auth()
+    
     st.title("YouTube to MP3 Downloader & Transcriber")
     
     # Initialize the downloader
