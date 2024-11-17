@@ -198,6 +198,12 @@ class YouTubeDownloader:
             except:
                 api_key = os.getenv('KNOWLEDGE_BASE_API_KEY')
             
+            if not api_key:
+                self.update_status("API key not found", is_error=True)
+                return None
+                
+            self.update_status(f"Using API key: {api_key[:8]}...")  # Show first 8 chars for verification
+            
             headers = {
                 'Authorization': f'Bearer {api_key}',
                 'Content-Type': 'application/json'
@@ -209,24 +215,55 @@ class YouTubeDownloader:
                 'transcription': combined_transcription
             }
             
-            self.update_status("Sending data to knowledge base API...")
+            self.update_status(f"Preparing request to {self.kb_api_endpoint}")
+            self.update_status(f"Keyword: {keyword}")
+            self.update_status(f"Language: {language}")
+            self.update_status(f"Transcription length: {len(combined_transcription)} characters")
             
             with st.spinner('Generating knowledge base... This might take a while.'):
-                response = requests.post(
-                    self.kb_api_endpoint,
-                    headers=headers,
-                    json=payload
-                )
-                
-                if response.status_code == 200:
-                    self.update_status("Knowledge base generated successfully!")
-                    return response.json()
-                else:
-                    self.update_status(f"Error generating knowledge base: {response.text}", is_error=True)
+                try:
+                    response = requests.post(
+                        self.kb_api_endpoint,
+                        headers=headers,
+                        json=payload,
+                        timeout=300  # 5 minutes timeout
+                    )
+                    
+                    self.update_status(f"Response status code: {response.status_code}")
+                    self.update_status(f"Response headers: {dict(response.headers)}")
+                    
+                    try:
+                        response_text = response.text
+                        self.update_status(f"Raw response: {response_text[:500]}...")
+                    except:
+                        self.update_status("Could not read response text", is_error=True)
+                    
+                    if response.status_code == 200:
+                        try:
+                            result = response.json()
+                            self.update_status("Knowledge base generated successfully!")
+                            return result
+                        except json.JSONDecodeError as e:
+                            self.update_status(f"Failed to parse JSON response: {str(e)}", is_error=True)
+                            return None
+                    else:
+                        self.update_status(
+                            f"Error {response.status_code} from API: {response.text}",
+                            is_error=True
+                        )
+                        return None
+                        
+                except requests.exceptions.Timeout:
+                    self.update_status("Request timed out after 5 minutes", is_error=True)
+                    return None
+                except requests.exceptions.RequestException as e:
+                    self.update_status(f"Request failed: {str(e)}", is_error=True)
                     return None
                     
         except Exception as e:
             self.update_status(f"Knowledge base generation error: {str(e)}", is_error=True)
+            import traceback
+            self.update_status(f"Traceback: {traceback.format_exc()}", is_error=True)
             return None
 
 def main():
