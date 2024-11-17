@@ -8,23 +8,28 @@ import os
 
 def get_api_config():
     """Get API configuration with detailed error checking"""
-    load_dotenv()
-    
-    api_key = os.getenv('RAPIDAPI_KEY')
-    api_host = os.getenv('YT_RAPIDAPI_HOST')
+    load_dotenv()  # Load environment variables as fallback
     
     config_status = {
         'is_valid': True,
         'errors': []
     }
     
+    # Try to get API keys from Streamlit secrets first, then fall back to env vars
+    try:
+        api_key = st.secrets.api_credentials.rapidapi_key
+        api_host = st.secrets.api_credentials.yt_rapidapi_host
+    except:
+        api_key = os.getenv('RAPIDAPI_KEY')
+        api_host = os.getenv('YT_RAPIDAPI_HOST')
+    
     if not api_key:
         config_status['is_valid'] = False
-        config_status['errors'].append("RAPIDAPI_KEY not found in environment variables")
+        config_status['errors'].append("RapidAPI key not found in secrets or environment variables")
     
     if not api_host:
         config_status['is_valid'] = False
-        config_status['errors'].append("YT_RAPIDAPI_HOST not found in environment variables")
+        config_status['errors'].append("RapidAPI host not found in secrets or environment variables")
     
     return {
         'key': api_key,

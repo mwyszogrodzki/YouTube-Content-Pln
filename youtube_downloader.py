@@ -27,10 +27,18 @@ class YouTubeDownloader:
 
     def check_conversion_status(self, video_id):
         """Check conversion status from API"""
-        headers = {
-            'x-rapidapi-key': os.getenv('RAPIDAPI_KEY'),
-            'x-rapidapi-host': os.getenv('RAPIDAPI_HOST')
-        }
+        try:
+            # Try to get API keys from Streamlit secrets first
+            headers = {
+                'x-rapidapi-key': st.secrets.api_credentials.rapidapi_key,
+                'x-rapidapi-host': st.secrets.api_credentials.rapidapi_host
+            }
+        except:
+            # Fall back to environment variables
+            headers = {
+                'x-rapidapi-key': os.getenv('RAPIDAPI_KEY'),
+                'x-rapidapi-host': os.getenv('RAPIDAPI_HOST')
+            }
         
         with st.spinner('Converting video...'):
             while True:
@@ -72,9 +80,14 @@ class YouTubeDownloader:
                 ], check=True)
                 
                 # Transcribe using Groq
-                client = Groq(
-                    api_key=os.getenv('GROQ_API_KEY')
-                )
+                try:
+                    client = Groq(
+                        api_key=st.secrets.api_credentials.groq_api_key
+                    )
+                except:
+                    client = Groq(
+                        api_key=os.getenv('GROQ_API_KEY')
+                    )
                 
                 with open(ogg_path, "rb") as file:
                     transcription = client.audio.transcriptions.create(
