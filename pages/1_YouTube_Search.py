@@ -121,7 +121,7 @@ def main():
             st.sidebar.write(f"- {video['title'][:50]}...")
     
     if st.sidebar.button("Process Selected Videos"):
-        st.switch_page("2_YouTube_Downloader")  # Changed to correct format
+        st.switch_page("pages/2_YouTube_Downloader.py")
     
     # Search inputs
     col1, col2, col3 = st.columns(3)
