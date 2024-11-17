@@ -7,12 +7,14 @@ import os
 import subprocess
 from groq import Groq
 from dotenv import load_dotenv
+import json
 
 class YouTubeDownloader:
     def __init__(self):
         load_dotenv()
         self.transcripts = []
         self.status_placeholder = None
+        self.kb_api_endpoint = "http://37.27.34.28/v1"
 
     def update_status(self, message, is_error=False):
         """Update status message in the UI"""
@@ -170,6 +172,63 @@ class YouTubeDownloader:
             self.update_status(f"Processing error: {str(e)}", is_error=True)
             return None
 
+    def generate_knowledge_base(self, keyword, language_code, combined_transcription):
+        """Generate knowledge base from transcriptions"""
+        self.update_status("Initializing knowledge base generation...")
+        
+        # Convert language code to full name
+        language_map = {
+            'en': 'english',
+            'pl': 'polish',
+            'de': 'german',
+            'fr': 'french',
+            'es': 'spanish',
+            'it': 'italian',
+            'ja': 'japanese',
+            'ko': 'korean',
+            'ru': 'russian'
+        }
+        
+        language = language_map.get(language_code, 'english')
+        
+        try:
+            # Get API key from secrets or environment variables
+            try:
+                api_key = st.secrets.api_credentials.knowledge_base_api_key
+            except:
+                api_key = os.getenv('KNOWLEDGE_BASE_API_KEY')
+            
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            payload = {
+                'keyword': keyword,
+                'language': language,
+                'transcription': combined_transcription
+            }
+            
+            self.update_status("Sending data to knowledge base API...")
+            
+            with st.spinner('Generating knowledge base... This might take a while.'):
+                response = requests.post(
+                    self.kb_api_endpoint,
+                    headers=headers,
+                    json=payload
+                )
+                
+                if response.status_code == 200:
+                    self.update_status("Knowledge base generated successfully!")
+                    return response.json()
+                else:
+                    self.update_status(f"Error generating knowledge base: {response.text}", is_error=True)
+                    return None
+                    
+        except Exception as e:
+            self.update_status(f"Knowledge base generation error: {str(e)}", is_error=True)
+            return None
+
 def main():
     st.title("YouTube to MP3 Downloader & Transcriber")
     
@@ -182,12 +241,24 @@ def main():
     # Get selected videos from session state
     selected_videos = st.session_state.get('selected_videos', [])
     
+    # Get search keyword and language from session state
+    keyword = st.session_state.get('last_query', '')
+    language_code = st.session_state.get('last_language', 'en')
+    
     if not selected_videos:
         # Show manual URL input if no videos were selected
         url = st.text_input("Enter YouTube URL:")
         title = "Manual Entry"
         if url:
             selected_videos = [{'url': url, 'title': title}]
+            
+        # If manual entry, also ask for keyword and language
+        keyword = st.text_input("Enter keyword for knowledge base:", value=keyword)
+        language_code = st.selectbox(
+            "Select language:",
+            ["en", "pl", "de", "fr", "es", "it", "ja", "ko", "ru"],
+            index=["en", "pl", "de", "fr", "es", "it", "ja", "ko", "ru"].index(language_code)
+        )
     else:
         st.write(f"Processing {len(selected_videos)} selected videos")
     
@@ -228,9 +299,9 @@ def main():
         else:
             progress_bar.progress(0)
     
-    # If we have any transcripts, combine them and offer download
+    # If we have any transcripts, combine them and process further
     if all_transcripts:
-        st.success("All processing complete!")
+        st.success("All transcriptions complete!")
         
         # Combine transcripts into one document
         combined_text = ""
@@ -252,6 +323,33 @@ def main():
             file_name="combined_transcripts.txt",
             mime="text/plain"
         )
+        
+        # Generate knowledge base
+        if st.button("Generate Knowledge Base"):
+            with st.spinner('Generating knowledge base...'):
+                progress_bar = st.progress(0)
+                
+                # Update progress bar
+                progress_bar.progress(25)
+                st.write("Preparing data...")
+                
+                # Generate knowledge base
+                progress_bar.progress(50)
+                st.write("Sending data to API...")
+                
+                result = downloader.generate_knowledge_base(
+                    keyword=keyword,
+                    language_code=language_code,
+                    combined_transcription=combined_text
+                )
+                
+                if result:
+                    progress_bar.progress(100)
+                    st.success("Knowledge base generated successfully!")
+                    st.json(result)
+                else:
+                    progress_bar.progress(0)
+                    st.error("Failed to generate knowledge base")
         
         # Clear selected videos after processing
         if 'selected_videos' in st.session_state:
