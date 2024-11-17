@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 class YouTubeDownloader:
     def __init__(self):
         load_dotenv()
-        self.current_transcript = ""
+        self.transcripts = []
 
     def extract_video_id(self, url):
         """Extract YouTube video ID from URL"""
@@ -106,45 +106,90 @@ class YouTubeDownloader:
             st.error(f"Processing error: {str(e)}")
             return None
 
+    def add_transcript(self, url, title, transcript):
+        """Add a transcript to the collection"""
+        self.transcripts.append({
+            'url': url,
+            'title': title,
+            'transcript': transcript,
+            'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
+        })
+
 def main():
     st.title("YouTube to MP3 Downloader & Transcriber")
     
     # Initialize the downloader
     downloader = YouTubeDownloader()
     
-    # URL input
-    url = st.text_input("Enter YouTube URL:")
+    # Get selected videos from session state
+    selected_videos = st.session_state.get('selected_videos', [])
     
-    if st.button("Convert to MP3 and Transcribe"):
+    if not selected_videos:
+        # Show manual URL input if no videos were selected
+        url = st.text_input("Enter YouTube URL:")
+        title = "Manual Entry"
         if url:
-            video_id = downloader.extract_video_id(url)
+            selected_videos = [{'url': url, 'title': title}]
+    else:
+        st.write(f"Processing {len(selected_videos)} selected videos")
+    
+    # Process all videos
+    all_transcripts = []
+    
+    for video in selected_videos:
+        st.subheader(f"Processing: {video['title']}")
+        url = video['url']
+        
+        video_id = downloader.extract_video_id(url)
+        if not video_id:
+            st.error(f"Invalid YouTube URL: {url}")
+            continue
             
-            if not video_id:
-                st.error("Invalid YouTube URL")
-            else:
-                # Get download link
-                download_link = downloader.check_conversion_status(video_id)
-                
-                if download_link:
-                    # Process the file and get transcript
-                    transcript = downloader.download_and_process_file(download_link)
-                    
-                    if transcript:
-                        st.success("Processing complete!")
-                        
-                        # Display transcript
-                        st.subheader("Transcript:")
-                        st.text_area("", transcript, height=300)
-                        
-                        # Download button for transcript
-                        st.download_button(
-                            label="Download Transcript",
-                            data=transcript,
-                            file_name="transcript.txt",
-                            mime="text/plain"
-                        )
-        else:
-            st.warning("Please enter a YouTube URL")
+        # Get download link
+        download_link = downloader.check_conversion_status(video_id)
+        
+        if download_link:
+            # Process the file and get transcript
+            transcript = downloader.download_and_process_file(download_link)
+            
+            if transcript:
+                all_transcripts.append({
+                    'title': video['title'],
+                    'url': url,
+                    'transcript': transcript
+                })
+                st.success(f"Successfully processed: {video['title']}")
+    
+    # If we have any transcripts, combine them and offer download
+    if all_transcripts:
+        st.success("All processing complete!")
+        
+        # Combine transcripts into one document
+        combined_text = ""
+        for t in all_transcripts:
+            combined_text += f"\n\n{'='*50}\n"
+            combined_text += f"Title: {t['title']}\n"
+            combined_text += f"URL: {t['url']}\n"
+            combined_text += f"{'='*50}\n\n"
+            combined_text += t['transcript']
+        
+        # Display combined transcript
+        st.subheader("Combined Transcript:")
+        st.text_area("", combined_text, height=300)
+        
+        # Download button for combined transcript
+        st.download_button(
+            label="Download Combined Transcript",
+            data=combined_text,
+            file_name="combined_transcripts.txt",
+            mime="text/plain"
+        )
+        
+        # Clear selected videos after processing
+        if 'selected_videos' in st.session_state:
+            if st.button("Clear Selected Videos"):
+                st.session_state.selected_videos = []
+                st.experimental_rerun()
 
 if __name__ == "__main__":
     main() 

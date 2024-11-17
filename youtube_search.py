@@ -97,8 +97,18 @@ def search_youtube(query, country_code="US", language="en"):
 def main():
     st.title("YouTube Search App")
     
+    # Create/access session state for selected videos
+    if 'selected_videos' not in st.session_state:
+        st.session_state.selected_videos = []
+    
     # Debug mode toggle
     debug_mode = st.sidebar.checkbox("Debug Mode", value=False)
+    
+    # Show selected videos count in sidebar
+    st.sidebar.write(f"Selected Videos: {len(st.session_state.selected_videos)}")
+    
+    if st.sidebar.button("Process Selected Videos"):
+        st.switch_page("YouTube Downloader")
     
     # Search inputs
     col1, col2, col3 = st.columns(3)
@@ -127,7 +137,7 @@ def main():
                     for item in results["data"]:
                         if item["type"] == "video":
                             # Create columns for layout
-                            col1, col2 = st.columns([1, 3])
+                            col1, col2, col3 = st.columns([1, 3, 1])
                             
                             # Display thumbnail
                             with col1:
@@ -145,12 +155,31 @@ def main():
                             
                             # Display video information
                             with col2:
-                                st.markdown(f"### [{item['title']}](https://youtube.com/watch?v={item['videoId']})")
+                                video_url = f"https://youtube.com/watch?v={item['videoId']}"
+                                st.markdown(f"### [{item['title']}]({video_url})")
                                 st.write(f"Channel: {item.get('channelTitle', 'N/A')}")
                                 st.write(f"Views: {item.get('viewCount', 'N/A')}")
                                 st.write(f"Duration: {item.get('lengthText', 'N/A')}")
                                 if "description" in item:
                                     st.write(f"Description: {item['description'][:200]}...")
+                            
+                            # Add select button
+                            with col3:
+                                video_data = {
+                                    'url': video_url,
+                                    'title': item['title']
+                                }
+                                if video_url in [v['url'] for v in st.session_state.selected_videos]:
+                                    if st.button('Deselect', key=f"btn_{item['videoId']}"):
+                                        st.session_state.selected_videos = [
+                                            v for v in st.session_state.selected_videos 
+                                            if v['url'] != video_url
+                                        ]
+                                        st.experimental_rerun()
+                                else:
+                                    if st.button('Select for Transcription', key=f"btn_{item['videoId']}"):
+                                        st.session_state.selected_videos.append(video_data)
+                                        st.experimental_rerun()
                             
                             st.divider()
                             
