@@ -14,7 +14,7 @@ class YouTubeDownloader:
         load_dotenv()
         self.transcripts = []
         self.status_placeholder = None
-        self.kb_api_endpoint = "http://37.27.34.28/v1"
+        self.kb_api_endpoint = "http://37.27.34.28/v1/workflows/run"
 
     def update_status(self, message, is_error=False):
         """Update status message in the UI"""
@@ -202,17 +202,22 @@ class YouTubeDownloader:
                 self.update_status("API key not found", is_error=True)
                 return None
                 
-            self.update_status(f"Using API key: {api_key[:8]}...")  # Show first 8 chars for verification
+            self.update_status(f"Using API key: {api_key[:8]}...")
             
             headers = {
                 'Authorization': f'Bearer {api_key}',
                 'Content-Type': 'application/json'
             }
             
+            # Updated payload structure to match API requirements
             payload = {
-                'keyword': keyword,
-                'language': language,
-                'transcription': combined_transcription
+                "inputs": {
+                    "keyword": keyword,
+                    "language": language,
+                    "transcription": combined_transcription
+                },
+                "response_mode": "streaming",
+                "user": "streamlit-app"
             }
             
             self.update_status(f"Preparing request to {self.kb_api_endpoint}")
@@ -220,13 +225,32 @@ class YouTubeDownloader:
             self.update_status(f"Language: {language}")
             self.update_status(f"Transcription length: {len(combined_transcription)} characters")
             
+            # Debug the request
+            self.update_status("Request Headers:")
+            for key, value in headers.items():
+                if key.lower() != 'authorization':
+                    self.update_status(f"{key}: {value}")
+                else:
+                    self.update_status(f"{key}: Bearer {api_key[:8]}...")
+            
+            self.update_status("Request Payload Preview:")
+            self.update_status(str({
+                'inputs': {
+                    'keyword': payload['inputs']['keyword'],
+                    'language': payload['inputs']['language'],
+                    'transcription_length': len(payload['inputs']['transcription'])
+                },
+                'response_mode': payload['response_mode'],
+                'user': payload['user']
+            }))
+            
             with st.spinner('Generating knowledge base... This might take a while.'):
                 try:
                     response = requests.post(
                         self.kb_api_endpoint,
                         headers=headers,
                         json=payload,
-                        timeout=300  # 5 minutes timeout
+                        timeout=300
                     )
                     
                     self.update_status(f"Response status code: {response.status_code}")
@@ -242,6 +266,7 @@ class YouTubeDownloader:
                         try:
                             result = response.json()
                             self.update_status("Knowledge base generated successfully!")
+                            st.session_state['knowledge_base'] = result
                             return result
                         except json.JSONDecodeError as e:
                             self.update_status(f"Failed to parse JSON response: {str(e)}", is_error=True)

@@ -21,3 +21,6 @@ Thumbs.db
 
 # Secrets
 .streamlit/secrets.toml
+
+# Test files
+test_kb_api.py
