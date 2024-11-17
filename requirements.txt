@@ -2,4 +2,8 @@ streamlit
 requests
 python-dotenv
 Pillow
-groq 
+groq
+networkx
+pyvis
+pandas
+matplotlib 
