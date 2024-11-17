@@ -1,2 +1,4 @@
 ffmpeg
-python3-ffmpeg 
+libavcodec-extra
+libavformat58
+libavutil56
