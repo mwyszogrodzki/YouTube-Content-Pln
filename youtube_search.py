@@ -120,7 +120,7 @@ def main():
             st.sidebar.write(f"- {video['title'][:50]}...")
     
     if st.sidebar.button("Process Selected Videos"):
-        st.switch_page("YouTube Downloader")
+        st.switch_page("pages/youtube_downloader.py")
     
     # Search inputs
     col1, col2, col3 = st.columns(3)
@@ -201,7 +201,7 @@ def main():
                         button_label = 'Deselect' if is_selected else 'Select for Transcription'
                         if st.button(button_label, key=f"btn_{item['videoId']}"):
                             handle_selection(video_data)
-                            st.experimental_rerun()
+                            st.rerun()
                     
                     st.divider()
                     

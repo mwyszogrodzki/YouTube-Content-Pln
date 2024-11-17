@@ -189,7 +189,7 @@ def main():
         if 'selected_videos' in st.session_state:
             if st.button("Clear Selected Videos"):
                 st.session_state.selected_videos = []
-                st.experimental_rerun()
+                st.rerun()
 
 if __name__ == "__main__":
     main() 

@@ -67,7 +67,7 @@ def main():
     # Show logout button in sidebar
     if st.sidebar.button("Logout"):
         del st.session_state["password_correct"]
-        st.experimental_rerun()
+        st.rerun()
     
     st.title("YouTube Tools 🎥")
     st.markdown("---")
