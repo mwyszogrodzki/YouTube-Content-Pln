@@ -51,7 +51,7 @@ class YouTubeDownloader:
         
         self.update_status("Starting video conversion...")
         attempts = 0
-        max_attempts = 30  # Maximum number of attempts (60 seconds)
+        max_attempts = 15  # Reduced from 30 to 15 attempts
         
         while attempts < max_attempts:
             try:
@@ -61,19 +61,24 @@ class YouTubeDownloader:
                 )
                 data = response.json()
                 
+                # Check for different status responses
                 if data.get('status') == 'ok':
                     self.update_status("Video conversion completed successfully!")
                     return data.get('link')
+                elif data.get('status') == 'processing':
+                    self.update_status(f"Video is being converted... (Attempt {attempts + 1}/{max_attempts})")
+                elif data.get('status') == 'fail':
+                    self.update_status(f"Conversion failed: {data.get('msg', 'Unknown error')}", is_error=True)
+                    return None
                 
-                self.update_status(f"Converting... Attempt {attempts + 1}/{max_attempts}")
-                time.sleep(2)
+                time.sleep(4)  # Increased delay between attempts to 4 seconds
                 attempts += 1
                 
             except Exception as e:
                 self.update_status(f"Conversion error: {str(e)}", is_error=True)
                 return None
         
-        self.update_status("Conversion timed out", is_error=True)
+        self.update_status("Conversion timed out - video might be too long or unavailable", is_error=True)
         return None
 
     def download_and_process_file(self, url):
