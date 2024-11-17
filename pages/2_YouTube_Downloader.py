@@ -209,12 +209,12 @@ class YouTubeDownloader:
                 'Content-Type': 'application/json'
             }
             
-            # Updated payload structure to match API requirements
+            # Match exactly the test file payload structure
             payload = {
                 "inputs": {
                     "keyword": keyword,
                     "language": language,
-                    "transcription": combined_transcription
+                    "transcription": combined_transcription.strip()  # Remove extra whitespace
                 },
                 "response_mode": "streaming",
                 "user": "streamlit-app"
@@ -234,15 +234,16 @@ class YouTubeDownloader:
                     self.update_status(f"{key}: Bearer {api_key[:8]}...")
             
             self.update_status("Request Payload Preview:")
-            self.update_status(str({
-                'inputs': {
-                    'keyword': payload['inputs']['keyword'],
-                    'language': payload['inputs']['language'],
-                    'transcription_length': len(payload['inputs']['transcription'])
+            preview_payload = {
+                "inputs": {
+                    "keyword": payload["inputs"]["keyword"],
+                    "language": payload["inputs"]["language"],
+                    "transcription_length": len(payload["inputs"]["transcription"])
                 },
-                'response_mode': payload['response_mode'],
-                'user': payload['user']
-            }))
+                "response_mode": payload["response_mode"],
+                "user": payload["user"]
+            }
+            self.update_status(str(preview_payload))
             
             with st.spinner('Generating knowledge base... This might take a while.'):
                 try:
@@ -377,23 +378,25 @@ def main():
     if all_transcripts:
         st.success("All transcriptions complete!")
         
-        # Combine transcripts into one document
-        combined_text = ""
-        for t in all_transcripts:
-            combined_text += f"\n\n{'='*50}\n"
-            combined_text += f"Title: {t['title']}\n"
-            combined_text += f"URL: {t['url']}\n"
-            combined_text += f"{'='*50}\n\n"
-            combined_text += t['transcript']
+        # Store combined transcripts in session state if not already there
+        if 'combined_transcription' not in st.session_state:
+            combined_text = ""
+            for t in all_transcripts:
+                combined_text += f"\n\n{'='*50}\n"
+                combined_text += f"Title: {t['title']}\n"
+                combined_text += f"URL: {t['url']}\n"
+                combined_text += f"{'='*50}\n\n"
+                combined_text += t['transcript']
+            st.session_state.combined_transcription = combined_text
         
         # Display combined transcript
         st.subheader("Combined Transcript:")
-        st.text_area("", combined_text, height=300)
+        st.text_area("", st.session_state.combined_transcription, height=300)
         
         # Download button for combined transcript
         st.download_button(
             label="Download Combined Transcript",
-            data=combined_text,
+            data=st.session_state.combined_transcription,
             file_name="combined_transcripts.txt",
             mime="text/plain"
         )
@@ -407,14 +410,14 @@ def main():
                 progress_bar.progress(25)
                 st.write("Preparing data...")
                 
-                # Generate knowledge base
+                # Generate knowledge base using stored transcription
                 progress_bar.progress(50)
                 st.write("Sending data to API...")
                 
                 result = downloader.generate_knowledge_base(
                     keyword=keyword,
                     language_code=language_code,
-                    combined_transcription=combined_text
+                    combined_transcription=st.session_state.combined_transcription
                 )
                 
                 if result:
@@ -425,10 +428,12 @@ def main():
                     progress_bar.progress(0)
                     st.error("Failed to generate knowledge base")
         
-        # Clear selected videos after processing
+        # Clear selected videos and transcription after processing
         if 'selected_videos' in st.session_state:
             if st.button("Clear Selected Videos"):
                 st.session_state.selected_videos = []
+                if 'combined_transcription' in st.session_state:
+                    del st.session_state.combined_transcription
                 st.rerun()
 
 if __name__ == "__main__":
