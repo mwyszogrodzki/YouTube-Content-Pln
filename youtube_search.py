@@ -97,15 +97,27 @@ def search_youtube(query, country_code="US", language="en"):
 def main():
     st.title("YouTube Search App")
     
-    # Create/access session state for selected videos
+    # Create/access session state for selected videos and search results
     if 'selected_videos' not in st.session_state:
         st.session_state.selected_videos = []
+    if 'search_results' not in st.session_state:
+        st.session_state.search_results = None
+    if 'last_query' not in st.session_state:
+        st.session_state.last_query = ""
+    if 'last_country' not in st.session_state:
+        st.session_state.last_country = "US"
+    if 'last_language' not in st.session_state:
+        st.session_state.last_language = "en"
     
     # Debug mode toggle
     debug_mode = st.sidebar.checkbox("Debug Mode", value=False)
     
-    # Show selected videos count in sidebar
+    # Show selected videos count and list in sidebar
     st.sidebar.write(f"Selected Videos: {len(st.session_state.selected_videos)}")
+    if st.session_state.selected_videos:
+        st.sidebar.write("Selected:")
+        for video in st.session_state.selected_videos:
+            st.sidebar.write(f"- {video['title'][:50]}...")
     
     if st.sidebar.button("Process Selected Videos"):
         st.switch_page("YouTube Downloader")
@@ -114,83 +126,94 @@ def main():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        query = st.text_input("Search query", "")
+        query = st.text_input("Search query", value=st.session_state.last_query)
     with col2:
         country = st.selectbox("Country", 
             ["US", "PL", "DE", "FR", "ES", "IT", "GB", "JP", "KR", "RU"],
-            index=0
+            index=["US", "PL", "DE", "FR", "ES", "IT", "GB", "JP", "KR", "RU"].index(st.session_state.last_country)
         )
     with col3:
         language = st.selectbox("Language",
             ["en", "pl", "de", "fr", "es", "it", "ja", "ko", "ru"],
-            index=0
+            index=["en", "pl", "de", "fr", "es", "it", "ja", "ko", "ru"].index(st.session_state.last_language)
         )
     
-    if st.button("Search"):
-        if query:
-            with st.spinner("Searching..."):
-                results = search_youtube(query, country, language)
-                
-                if results and "data" in results:
-                    st.success(f"Found {len(results['data'])} results")
-                    
-                    for item in results["data"]:
-                        if item["type"] == "video":
-                            # Create columns for layout
-                            col1, col2, col3 = st.columns([1, 3, 1])
-                            
-                            # Display thumbnail
-                            with col1:
-                                if "thumbnail" in item:
-                                    thumbnail_url = item["thumbnail"][0]["url"]
-                                    try:
-                                        response = requests.get(thumbnail_url)
-                                        img = Image.open(BytesIO(response.content))
-                                        st.image(img, width=160)
-                                    except Exception as e:
-                                        if debug_mode:
-                                            st.error(f"Thumbnail error: {str(e)}")
-                                        else:
-                                            st.write("Thumbnail not available")
-                            
-                            # Display video information
-                            with col2:
-                                video_url = f"https://youtube.com/watch?v={item['videoId']}"
-                                st.markdown(f"### [{item['title']}]({video_url})")
-                                st.write(f"Channel: {item.get('channelTitle', 'N/A')}")
-                                st.write(f"Views: {item.get('viewCount', 'N/A')}")
-                                st.write(f"Duration: {item.get('lengthText', 'N/A')}")
-                                if "description" in item:
-                                    st.write(f"Description: {item['description'][:200]}...")
-                            
-                            # Add select button
-                            with col3:
-                                video_data = {
-                                    'url': video_url,
-                                    'title': item['title']
-                                }
-                                if video_url in [v['url'] for v in st.session_state.selected_videos]:
-                                    if st.button('Deselect', key=f"btn_{item['videoId']}"):
-                                        st.session_state.selected_videos = [
-                                            v for v in st.session_state.selected_videos 
-                                            if v['url'] != video_url
-                                        ]
-                                        st.experimental_rerun()
-                                else:
-                                    if st.button('Select for Transcription', key=f"btn_{item['videoId']}"):
-                                        st.session_state.selected_videos.append(video_data)
-                                        st.experimental_rerun()
-                            
-                            st.divider()
-                            
-                            if debug_mode:
-                                st.write("Raw item data:", item)
-                else:
-                    st.error("No results found")
-                    if debug_mode:
-                        st.write("Raw results:", results)
+    def handle_selection(video_data):
+        if video_data['url'] in [v['url'] for v in st.session_state.selected_videos]:
+            st.session_state.selected_videos = [
+                v for v in st.session_state.selected_videos 
+                if v['url'] != video_data['url']
+            ]
         else:
-            st.warning("Please enter a search query")
+            st.session_state.selected_videos.append(video_data)
+    
+    # Search button or results already exist
+    if st.button("Search") or st.session_state.search_results:
+        if query and (query != st.session_state.last_query or 
+                     country != st.session_state.last_country or 
+                     language != st.session_state.last_language):
+            with st.spinner("Searching..."):
+                st.session_state.search_results = search_youtube(query, country, language)
+                st.session_state.last_query = query
+                st.session_state.last_country = country
+                st.session_state.last_language = language
+        
+        results = st.session_state.search_results
+        if results and "data" in results:
+            st.success(f"Found {len(results['data'])} results")
+            
+            for item in results["data"]:
+                if item["type"] == "video":
+                    # Create columns for layout
+                    col1, col2, col3 = st.columns([1, 3, 1])
+                    
+                    # Display thumbnail
+                    with col1:
+                        if "thumbnail" in item:
+                            thumbnail_url = item["thumbnail"][0]["url"]
+                            try:
+                                response = requests.get(thumbnail_url)
+                                img = Image.open(BytesIO(response.content))
+                                st.image(img, width=160)
+                            except Exception as e:
+                                if debug_mode:
+                                    st.error(f"Thumbnail error: {str(e)}")
+                                else:
+                                    st.write("Thumbnail not available")
+                    
+                    # Display video information
+                    with col2:
+                        video_url = f"https://youtube.com/watch?v={item['videoId']}"
+                        st.markdown(f"### [{item['title']}]({video_url})")
+                        st.write(f"Channel: {item.get('channelTitle', 'N/A')}")
+                        st.write(f"Views: {item.get('viewCount', 'N/A')}")
+                        st.write(f"Duration: {item.get('lengthText', 'N/A')}")
+                        if "description" in item:
+                            st.write(f"Description: {item['description'][:200]}...")
+                    
+                    # Add select button
+                    with col3:
+                        video_data = {
+                            'url': video_url,
+                            'title': item['title']
+                        }
+                        is_selected = video_url in [v['url'] for v in st.session_state.selected_videos]
+                        button_label = 'Deselect' if is_selected else 'Select for Transcription'
+                        if st.button(button_label, key=f"btn_{item['videoId']}"):
+                            handle_selection(video_data)
+                            st.experimental_rerun()
+                    
+                    st.divider()
+                    
+                    if debug_mode:
+                        st.write("Raw item data:", item)
+        else:
+            if query:
+                st.error("No results found")
+                if debug_mode:
+                    st.write("Raw results:", results)
+    else:
+        st.warning("Please enter a search query")
 
 if __name__ == "__main__":
     main() 
